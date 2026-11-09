@@ -91,7 +91,7 @@ export default class Application extends Component {
 
       <div class="layout">
         <header class="layout__header">
-          <h1>Replay, repeat</h1>
+          <h1>replay, repeat</h1>
           <div class="layout__header-end">
             <ExternalLink href="https://github.com/NullVoxPopuli/replay-repeat" data-test-github>
               GitHub
