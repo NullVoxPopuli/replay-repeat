@@ -691,6 +691,37 @@ module("Application | replay", function (hooks) {
     assert.dom("[data-test-replay]").doesNotHaveAttribute("data-theatre");
   });
 
+  test("in theatre mode, a button scrolls the player back", async function (assert) {
+    await loadTheTestVideo();
+    await click("[data-test-theatre]");
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const player = find("[data-test-player]");
+    const scroller = document.querySelector("#ember-testing-container");
+
+    if (!player || !scroller) throw new Error("No player or test container");
+
+    const alignedTop = player.getBoundingClientRect().top;
+
+    assert.dom("[data-test-recenter]").doesNotExist("aligned, there is no button");
+
+    scroller.scrollTop += 200;
+    await waitFor("[data-test-recenter]");
+    assert.dom("[data-test-recenter]").hasText("Re-center video");
+    assert.dom(".replay__recenter").hasStyle({ position: "fixed" }, "it stays on screen");
+
+    await click("[data-test-recenter]");
+    await waitUntil(() => Math.abs(player.getBoundingClientRect().top - alignedTop) < 2, {
+      timeout: 3000,
+    });
+    assert.dom("[data-test-recenter]").doesNotExist("back in its theatre place, the button goes");
+
+    scroller.scrollTop += 200;
+    await waitFor("[data-test-recenter]");
+    await triggerKeyEvent("[data-test-replay]", "keydown", "Escape");
+    assert.dom("[data-test-recenter]").doesNotExist("out of theatre mode, there is no button");
+  });
+
   test("over the video, the controls hide when nothing happens", async function (assert) {
     await loadTheTestVideo();
     await click("[data-test-theatre]");

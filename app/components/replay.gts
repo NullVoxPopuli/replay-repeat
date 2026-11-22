@@ -75,6 +75,12 @@ const IDLE_MS = 2500;
  */
 const SEEK_SETTLE_MS = 250;
 
+/**
+ * In theatre mode, a scroll further than this from the aligned player
+ * shows the button that scrolls the player back.
+ */
+const RECENTER_PX = 48;
+
 function toStep(seconds: number) {
   return Math.round(seconds / STEP) * STEP;
 }
@@ -127,6 +133,18 @@ export class Replay extends Component<Signature> {
   @tracked overControls = false;
 
   /**
+   * The player is scrolled away from where theatre mode put it.
+   */
+  @tracked drifted = false;
+
+  /**
+   * The top of the player in the viewport, right after theatre mode aligned it.
+   * The page can be too short to bring the player to the top of the window,
+   * so the aligned place is measured, not assumed to be 0.
+   */
+  #alignedTop = 0;
+
+  /**
    * The markers while a thumb moves. The URL gets them once, when the move ends,
    * so a drag is one history entry.
    */
@@ -151,6 +169,10 @@ export class Replay extends Component<Signature> {
    */
   get overlay() {
     return this.view !== "normal";
+  }
+
+  get showRecenter() {
+    return this.theatre && this.drifted;
   }
 
   /**
@@ -328,8 +350,28 @@ export class Replay extends Component<Signature> {
   alignTheatre() {
     if (!this.theatre) return;
 
-    requestAnimationFrame(() => this.#playerElement?.scrollIntoView({ block: "start" }));
+    requestAnimationFrame(() => {
+      this.#playerElement?.scrollIntoView({ block: "start" });
+      this.#alignedTop = this.#playerElement?.getBoundingClientRect().top ?? 0;
+      this.drifted = false;
+    });
   }
+
+  recenter = () => {
+    this.#playerElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
+  /**
+   * Any scroll on the page can move the player: the window, or a scrolling ancestor.
+   */
+  onScroll = () => {
+    if (!this.theatre || !this.#playerElement) return;
+
+    const top = this.#playerElement.getBoundingClientRect().top;
+    const drifted = Math.abs(top - this.#alignedTop) > RECENTER_PX;
+
+    if (drifted !== this.drifted) this.drifted = drifted;
+  };
 
   activity = () => {
     this.#activeAt = performance.now();
@@ -612,6 +654,7 @@ export class Replay extends Component<Signature> {
    * - listens for shortcut keys on the whole page
    * - takes the focus back from the YouTube iframe, which keeps key presses for itself
    * - follows full screen, which the browser can also leave on its own
+   * - follows scrolls, for the button that scrolls back to the theatre player
    */
   connect = modifier((element: HTMLElement) => {
     const loop = () => {
@@ -634,12 +677,14 @@ export class Replay extends Component<Signature> {
     document.addEventListener("keydown", this.onKey);
     document.addEventListener("fullscreenchange", this.fullscreenChanged);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
 
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", this.onKey);
       document.removeEventListener("fullscreenchange", this.fullscreenChanged);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener("scroll", this.onScroll, { capture: true });
     };
   });
 
@@ -845,6 +890,14 @@ export class Replay extends Component<Signature> {
           </div>
         {{/if}}
       </div>
+
+      {{#if this.showRecenter}}
+        <div class="replay__recenter">
+          <Button @variant="primary" @onClick={{this.recenter}} data-test-recenter>
+            Re-center video
+          </Button>
+        </div>
+      {{/if}}
 
       {{#if this.player}}
         <Shortcuts />

@@ -133,6 +133,19 @@ body:has(.replay[data-theatre]) {
   background: #000;
 }
 
+/**
+ * Theatre mode, with the player scrolled away: a button to scroll it back.
+ */
+.replay__recenter {
+  position: fixed;
+  top: var(--padding-4);
+  left: 50%;
+  z-index: 10;
+  transform: translateX(-50%);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 40%);
+}
+
 .replay__player:fullscreen {
   display: grid;
   place-content: center;
